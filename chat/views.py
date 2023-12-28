@@ -1,9 +1,11 @@
+from django.contrib.auth import logout
 from django.shortcuts import render, HttpResponse, redirect
 from .models import UserProfile, Friends, Messages
 from django.views.decorators.csrf import csrf_exempt
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
 from chat.serializers import MessageSerializer
+
 
 
 def getFriendsList(id):
@@ -128,6 +130,16 @@ def chat(request, username):
                        'curr_user': curr_user, 'friend': friend})
 
 
+def Logout(request):
+    if request.method == "POST":
+        logout(request)
+        return redirect('/')
+
+    return render(request, 'chat/index.html')
+
+
+
+
 @csrf_exempt
 def message_list(request, sender=None, receiver=None):
     if request.method == 'GET':
@@ -145,3 +157,5 @@ def message_list(request, sender=None, receiver=None):
             serializer.save()
             return JsonResponse(serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
+
+def
