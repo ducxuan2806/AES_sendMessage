@@ -1,3 +1,4 @@
+from Cryptodome.Random import get_random_bytes
 from django.db import models
 
 
@@ -6,7 +7,15 @@ class UserProfile(models.Model):
     name = models.CharField(max_length=25)
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=20, unique=True)
+    key = models.TextField(blank=True, null=True)  # Add privateKey field
 
+    def generate_rsa_key(self, bytes):
+        if not self.key:  # Check if private key already exists
+            self.key = get_random_bytes(bytes)
+            self.save()
+            return self.key
+        else:
+            return self.key
 
     def __str__(self):
         return f"{self.name}"
@@ -32,6 +41,7 @@ class Friends(models.Model):
 
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     friend = models.IntegerField()
+    key = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.friend}"

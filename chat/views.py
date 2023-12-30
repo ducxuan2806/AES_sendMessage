@@ -1,3 +1,5 @@
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Random import get_random_bytes
 from django.contrib.auth import logout
 from django.shortcuts import render, HttpResponse, redirect
 from .models import UserProfile, Friends, Messages
@@ -5,8 +7,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
 from chat.serializers import MessageSerializer
-
-
+from Cryptodome.Util.Padding import pad, unpad
+from Cryptodome.Cipher import AES
+import base64
 
 def getFriendsList(id):
     """
@@ -105,8 +108,9 @@ def addFriend(request, name):
             break
     if flag == 0:
         print("Friend Added!!")
-        curr_user.friends_set.create(friend=friend.id)
+        friendship = curr_user.friends_set.create(friend=friend.id)
         friend.friends_set.create(friend=id)
+        friendship.save()
     return redirect("/search")
 
 
@@ -120,7 +124,8 @@ def chat(request, username):
     friend = UserProfile.objects.get(username=username)
     id = getUserId(request.user.username)
     curr_user = UserProfile.objects.get(id=id)
-    messages = Messages.objects.filter(sender_name=id, receiver_name=friend.id) | Messages.objects.filter(sender_name=friend.id, receiver_name=id)
+    messages = Messages.objects.filter(sender_name=id, receiver_name=friend.id) | Messages.objects.filter(
+        sender_name=friend.id, receiver_name=id)
 
     if request.method == "GET":
         friends = getFriendsList(id)
@@ -138,24 +143,58 @@ def Logout(request):
     return render(request, 'chat/index.html')
 
 
+def messageEncrypt(message, key, iv):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    message = message.encode('utf-8')
+    padded_data = pad(message, AES.block_size)
+    ciphertext = cipher.encrypt(padded_data)
+    return base64.b64encode(ciphertext).decode('utf-8')
+
+
+def messageDecrypt(message, key, iv):
+    message = base64.b64decode(message.encode('utf-8'))
+    decipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = unpad(decipher.decrypt(message), AES.block_size)
+    return decrypted_data.decode('utf-8')
 
 
 @csrf_exempt
 def message_list(request, sender=None, receiver=None):
+    user_key = get_random_bytes(32)
+    iv = get_random_bytes(AES.block_size)
+
     if request.method == 'GET':
         messages = Messages.objects.filter(sender_name=sender, receiver_name=receiver, seen=False)
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         for message in messages:
+            if(is_base64(message)):
+                message.description = messageDecrypt(message.description, user_key, iv)
             message.seen = True
             message.save()
         return JsonResponse(serializer.data, safe=False)
 
     elif request.method == "POST":
         data = JSONParser().parse(request)
+        sender_user = UserProfile.objects.get(username=data['sender_name'])
         serializer = MessageSerializer(data=data)
+
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
+            message = data['description']
+            encrypted_message = messageEncrypt(message, user_key, iv)
+            data['description'] = encrypted_message
+            print(encrypted_message)
+            new_serializer = MessageSerializer(data=data)
+            new_serializer.is_valid()
+            return JsonResponse(new_serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
 
-def
+def is_base64(s):
+    try:
+        # Thử giải mã chuỗi base64
+        base64.b64decode(s)
+        # Nếu không có lỗi, đây là chuỗi base64
+        return True
+    except Exception:
+        # Nếu có lỗi, đây không phải là chuỗi base64
+        return False

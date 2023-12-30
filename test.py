@@ -1,10 +1,25 @@
-import sqlite3
-import csv
+from Cryptodome.Cipher import AES
+from Cryptodome.Util.Padding import pad, unpad
+from Cryptodome.Random import get_random_bytes
 
-with sqlite3.connect("db.sqlite3") as connection:
-    csvWriter = csv.writer(open("output.csv", "w"))
-    c = connection.cursor()
-    rows = c.fetchall()
+# Tạo khóa và cipher
+key = get_random_bytes(32)
+iv = get_random_bytes(AES.block_size)
 
-    for x in rows:
-        csvWriter.writerows(x)
+def messageEncrypt(message, key, iv):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    message = message.encode('utf-8')
+    padded_data = pad(message, AES.block_size)
+    ciphertext = cipher.encrypt(padded_data)
+    return ciphertext
+
+def messageDecrypt(message, key, iv):
+    decipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = unpad(decipher.decrypt(message), AES.block_size)
+    return decrypted_data.decode('utf-8')
+
+
+message = "an com khong"
+d = message.encode('utf-8')
+print(d)
+print(d.decode('utf-8'))

@@ -3,11 +3,11 @@
 
 {% load crispy_forms_tags %}
 
-{% for msg in message %}
+{% if message %}
     <script>
-        window.alert("{{ msg }}");
+        window.alert("{{ message }}");
     </script>
-{% endfor %}
+{% endif %}
 
 {% block content %}
     <div class="sign-up form" style="max-width: 600px">
@@ -27,6 +27,16 @@
                     {% endfor %}
                 </div>
             {% endfor %}
+
+            <!-- Display form-level errors -->
+            {% if form.non_field_errors %}
+                <div>
+                    {% for error in form.non_field_errors %}
+                        <small style="color: red">{{ error }}</small>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
             <p>Already have an account?<a href="/login">Login here.</a></p>
             <button type="submit" class="btn btn-success">Sign Up</button>
         </form>

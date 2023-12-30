@@ -31,6 +31,7 @@ def SignUp(request):
                 user = authenticate(username=username, password=password)
                 login(request, user)
                 profile = UserProfile(email=email, name=name, username=username)
+                profile.generate_rsa_key(32)
                 profile.save()
                 return redirect("/")
     else:
